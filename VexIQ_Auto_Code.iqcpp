@@ -1,1 +1,1125 @@
-{"mode":"Text","textContent":"#pragma region VEXcode Generated Robot Configuration\n// Make sure all required headers are included.\n#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n#include <math.h>\n#include <string.h>\n\n\n#include \"vex.h\"\n\nusing namespace vex;\n\n// Brain should be defined by default\nbrain Brain;\n\n\n// START IQ MACROS\n#define waitUntil(condition)                                                   \\\n  do {                                                                         \\\n    wait(5, msec);                                                             \\\n  } while (!(condition))\n\n#define repeat(iterations)                                                     \\\n  for (int iterator = 0; iterator < iterations; iterator++)\n// END IQ MACROS\n\n\n// Robot configuration code.\ninertial BrainInertial = inertial();\nmotor leftA = motor(PORT1, false);\nmotor leftB = motor(PORT2, false);\nmotor rightA = motor(PORT7, true);\nmotor rightB = motor(PORT8, true);\nmotor LeftDriveSmart = motor(PORT3, 3, false);\nmotor RightDriveSmart = motor(PORT10, 3, true);\n\nsmartdrive Drivetrain = smartdrive(LeftDriveSmart, RightDriveSmart, BrainInertial, 200);\n\ngyro Gyro6 = gyro(PORT6);\npneumatic Pneumatic9 = pneumatic(PORT9);\nbumper Bumper4 = bumper(PORT5);\ntouchled TouchLED11 = touchled(PORT11);\n\nbool vexcode_initial_drivetrain_calibration_completed = false;\nvoid calibrateDrivetrain() {\n  if (!vexcode_initial_drivetrain_calibration_completed) {\n    Pneumatic9.pumpOff();\n  }\n  wait(200, msec);\n  Brain.Screen.print(\"Calibrating\");\n  Brain.Screen.newLine();\n  Brain.Screen.print(\"Inertial\");\n  BrainInertial.calibrate();\n  while (BrainInertial.isCalibrating()) {\n    wait(25, msec);\n  }\n  if (!vexcode_initial_drivetrain_calibration_completed) {\n    Pneumatic9.pumpOn();\n  }\n  vexcode_initial_drivetrain_calibration_completed = true;\n  // Clears the screen and returns the cursor to row 1, column 1.\n  Brain.Screen.clearScreen();\n  Brain.Screen.setCursor(1, 1);\n}\n\n#pragma endregion VEXcode Generated Robot Configuration\n\n// Include the IQ Library\n#include \"vex.h\"\n  \n// Allows for easier use of the VEX Library\nusing namespace vex;\n\nfloat D;\nfloat kp;\nfloat ki;\nfloat kd;\nfloat integral  = 0;\nfloat previous_error = 0;\nfloat ang;\nfloat op;//pid output in term of speed\nfloat dis;\nfloat speed = 70;\nfloat r_speed = 70;\nfloat l_speed = 70;\nfloat error;\nfloat pp;//current angle of the gyro\nfloat sp;//desired angle of the gyro\nfloat P;\nfloat I;\nfloat r;//final speed of the right motor\nfloat l;\nfloat dis_initial;\nfloat dis_cm;\nint max_distance;//setpoint for the distance\nfloat final_angle;\nfloat head;\nfloat g;\nfloat f_an;\nfloat e;\nfloat set;\nfloat pos;\nfloat errord;\n// float op2;\ndouble av;\nint a;\nint b;\nint stopping;\nint s;\nint counter = 0;\n\nfloat pid_cal(float error, float kp, float ki, float kd)\n{\n  //error = sp - pp;\n  Brain.Screen.setCursor(3,1);\n  Brain.Screen.print(\"error: %f\",integral);\n\n  // proportional\n  P = error*kp;\n\n  // integral part\n  integral = integral + error;\n  I = ki*integral;\n\n  // darivative\n  D = kd*(error - previous_error);\n  previous_error = error;\n\n  op = P + I +D;\n\n  return op;\n\n}\n\nint breaking(float error, float previous_error, float av)\n{\n  if(error>-2 && error<2 && previous_error> -1 && previous_error<1)\n  {\n    printf(\"%f\\n\",av);\n    RightDriveSmart.setStopping(brake);\n    LeftDriveSmart.setStopping(brake);\n    RightDriveSmart.stop();\n    LeftDriveSmart.stop();\n    \n    if(av<20 && av>-20)\n    {\n      stopping = 1;\n    }\n    else \n    {\n      stopping = 0;\n\n    }\n    \n  }\n\n  return stopping;\n\n}\n\nvoid stop_intake()\n{\n  rightA.stop();\n  rightB.stop();\n  leftA.stop();\n  leftB.stop();\n}\n\nvoid start_intake()\n{\n  rightA.setVelocity(100,percent);\n  rightB.setVelocity(100,percent);\n  leftA.setVelocity(100,percent);\n  leftB.setVelocity(100,percent);\n  rightA.spin(forward);\n  rightB.spin(forward);\n  leftA.spin(forward);\n  leftB.spin(forward);\n\n}\n\n// 1.\n// RIGHT TURNING PID \n// ========================================================================================================\nfloat right_Turn(float sp)\n{\n  // kp = 0.6;\n  // ki = 0.000000000001;\n  // kd = 0.00009;\n\n  kp = 0.65;\n  ki = 0.000000000000001;\n  kd = 0.0000000000009;\n\n  float integral = 0;\n  float previous_error = 0;\n  s = 0; // initialze stopping condition as 0\n\n  Brain.Screen.clearScreen();\n  RightDriveSmart.setMaxTorque(100,percent);\n  LeftDriveSmart.setMaxTorque(100,percent);\n\n  while (true) \n  {\n\n  ang = Drivetrain.rotation(degrees);\n  pp = ang;\n\n  av = Gyro6.rate();\n  \n  Brain.Screen.setCursor(1,1);\n  Brain.Screen.print(\"Angle: %f\",pp);\n\n  Brain.Screen.setCursor(2,1);\n  Brain.Screen.print(\"heading: %f\",head);\n\n  error = sp - pp;\n\n  // PID calculation\n  op = pid_cal(error,kp,ki,kd);\n\n  if(op>= 100)\n  {\n    op = 100;\n  }\n\n  if(op<= -100)\n  {\n    op = -100;\n  }\n  \n\n  Brain.Screen.setCursor(5,1);\n  Brain.Screen.print(\"op: %f\",op);\n\n\n  if(op>0)\n  {\n    op = (0.7*op);\n\n  }\n\n  if(op<0)\n  {\n    // op = (0.7*op);\n    // op = 0 - op;\n    op = 5;\n\n  }\n\n  \n  Brain.Screen.setCursor(4,1);\n  Brain.Screen.print(\"op: %f\",op);\n\n  if(error>0)\n  {\n\n    RightDriveSmart.setVelocity(op+5,percent);\n    LeftDriveSmart.setVelocity(op+5,percent);\n    RightDriveSmart.spin(reverse);\n    LeftDriveSmart.spin(forward);\n\n    // s = breaking(error, previous_error,av);\n    // if(s == 1)\n    // {\n    //   break;\n    // }\n     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)\n  {\n    printf(\"%f\\n\",av);\n    RightDriveSmart.setStopping(brake);\n    LeftDriveSmart.setStopping(brake);\n    RightDriveSmart.stop();\n    LeftDriveSmart.stop();\n    \n    if(av<20 && av>-20)\n    {\n      break;\n    }\n   \n    \n  }\n\n  \n  }\n  else if(error<0)\n  {\n    RightDriveSmart.setVelocity(op+5,percent);\n    LeftDriveSmart.setVelocity(op+5,percent);\n    RightDriveSmart.spin(forward);\n    LeftDriveSmart.spin(reverse);\n\n    // breaking(error, previous_error,av);\n    // if(s == 1)\n    // {\n    //   break;\n    // }\n    if(error>-2 && error<2 && previous_error> -1 && previous_error<1)\n  {\n    printf(\"%f\\n\",av);\n    RightDriveSmart.setStopping(brake);\n    LeftDriveSmart.setStopping(brake);\n    RightDriveSmart.stop();\n    LeftDriveSmart.stop();\n    \n    if(av<20 && av>-20)\n    {\n      break;\n    }\n   \n    \n  }\n  }\n\n  previous_error = error;\n  \n  \n\n  \n}\nBrain.Screen.clearScreen();\nBrain.Screen.setCursor(1,1);\nBrain.Screen.print(\"done\");\nreturn sp;\n\n\n}\n// ========================================================================================================\n\n\n//2. \n// LEFT TURNNING PID\n// ========================================================================================================\nfloat left_Turn(float sp)\n{\n  // kp = 0.6;\n  // ki = 0.000000000001;\n  // kd = 0.00000009;\n\n  kp = 0.65;\n  ki = 0.000000000000001;\n  kd = 0.0000000000009;\n\n  float integral = 0;\n  float previous_error = 0;\n  s = 0; // initialze stopping condition as 0\n\n  Brain.Screen.clearScreen();\n\n  while (true) {\n\n  ang = Drivetrain.rotation(degrees);\n  pp = ang;\n  \n  \n  Brain.Screen.setCursor(1,1);\n  Brain.Screen.print(\"Angle: %f\",pp);\n  Brain.Screen.setCursor(3,1);\n  Brain.Screen.print(\"sp: %f\",sp);\n\n  av = Gyro6.rate();\n\n  error = pp - sp;\n\n  // PID calculation\n  op = pid_cal(error,kp,ki,kd);\n\n  if(op>= 100)\n  {\n    op = 100;\n  }\n\n  if(op<= -100)\n  {\n    op = -100;\n  }\n\n  \n  if(op>0)\n  {\n    op = (0.7*op);\n\n  }\n\n  if(op<0)\n  {\n    // op = (0.7*op);\n    // op = 0 - op;\n\n    op = 5;\n  }\n\n  Brain.Screen.setCursor(2,1);\n  Brain.Screen.print(\"op: %f\",op);\n  Brain.Screen.setCursor(4,1);\n  Brain.Screen.print(\"error: %f\",error);\n\n  \n  if(error<0)\n  {\n    RightDriveSmart.setVelocity(op+5,percent);\n    LeftDriveSmart.setVelocity(op+5,percent);\n    RightDriveSmart.spin(reverse);\n\n    // s = breaking(error, previous_error,av);\n    // if(s == 1)\n    // {\n    //   break;\n    // }\n     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)\n  {\n    printf(\"%f\\n\",av);\n    RightDriveSmart.setStopping(brake);\n    LeftDriveSmart.setStopping(brake);\n    RightDriveSmart.stop();\n    LeftDriveSmart.stop();\n    \n    if(av<20 && av>-20)\n    {\n      break;\n    }\n   \n    \n  }\n  \n  }\n  else if(error>0)\n  {\n    RightDriveSmart.setVelocity(op+5,percent);\n    LeftDriveSmart.setVelocity(op+5,percent);\n    RightDriveSmart.spin(forward);\n    LeftDriveSmart.spin(reverse);\n\n    // s = breaking(error, previous_error,av);\n    // if(s == 1)\n    // {\n    //   break;\n    // }\n     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)\n  {\n    printf(\"%f\\n\",av);\n    RightDriveSmart.setStopping(brake);\n    LeftDriveSmart.setStopping(brake);\n    RightDriveSmart.stop();\n    LeftDriveSmart.stop();\n    \n    if(av<20 && av>-20)\n    {\n      break;\n    }\n   \n    \n  }\n\n  }\n  previous_error = error;\n\n}\n  \n\nBrain.Screen.clearScreen();\nBrain.Screen.setCursor(1,1);\nBrain.Screen.print(\"done\");\nreturn sp;\n\n}\n// ========================================================================================================\n\n\n//3. \n// STRAIGHT DRIVE PID\n// ========================================================================================================\nvoid straight_drive(float set, int x)\n{\n  kp = 3;\n  ki = 0.000001;\n  kd = 1500;\n  max_distance = x;\n  previous_error = 0;\n  integral = 0;\n\n  float speed = 90;\n  float r_speed = 90;\n  float l_speed = 90;\n\n  Brain.Screen.clearScreen();\n  dis_initial = RightDriveSmart.position(degrees);\n  dis = RightDriveSmart.position(degrees);\n  dis = dis - dis_initial;\n\n  while (dis<max_distance) \n  {\n\n    Drivetrain.setDriveVelocity(speed,percent);\n    Drivetrain.drive(forward);\n\n    dis = RightDriveSmart.position(degrees);\n    dis = dis - dis_initial;\n    dis_cm = dis/27.8;\n\n    ang = Drivetrain.rotation(degrees);\n    pp = ang;\n    sp = set;\n\n    error = pp - sp;\n\n    Brain.Screen.setCursor(1, 1);\n    Brain.Screen.print(\"ang: %f\",pp);\n\n    // proportional part\n    P = error*kp;\n\n    // integral part\n    integral = integral + error;\n    I = ki*integral;\n\n    // darivative\n    D = kd*(error - previous_error);\n    previous_error = error;\n\n    op = P + I +D;\n\n    if(op>= 100)\n    {\n      op = 100;\n    }\n\n    if(op<= -100)\n    {\n      op = -100;\n    }\n\n    // set op in range of 0 - 30\n    // ================================\n                                      \n    op = 0.3*op;\n    Brain.Screen.setCursor(2, 1);\n    Brain.Screen.print(\"op: %f\",op);\n\n    // ================================\n\n    if(op>0)\n    {\n      r = r_speed + op;\n      l = l_speed - op;\n      RightDriveSmart.setVelocity(r,percent);\n      LeftDriveSmart.setVelocity(l,percent);\n\n    }\n    else if(op<0)\n    {\n\n      r = r_speed + op;\n      l = l_speed - op;\n      RightDriveSmart.setVelocity(r,percent);\n      LeftDriveSmart.setVelocity(l,percent);\n\n    }\n\n    Brain.Screen.setCursor(3, 1);\n    Brain.Screen.print(\"error: %f\",error);\n\n    Brain.Screen.setCursor(4, 1);\n    Brain.Screen.print(\"l: %f\",l);\n    Brain.Screen.setCursor(5, 1);\n    Brain.Screen.print(\"r: %f\",r);\n\n    }\n\n    Drivetrain.stop();\n    Drivetrain.setStopping(brake);\n    Drivetrain.stop();\n    ang = Drivetrain.heading(degrees);\n    \n\n}\n// ========================================================================================================\n\nvoid bucket()\n{\n  Pneumatic9.retract(cylinder1);\n  rightA.setVelocity(100,percent);\n  rightB.setVelocity(100,percent);\n  leftA.setVelocity(100,percent);\n  leftB.setVelocity(100,percent);\n  while(true)\n  {\n    b = Bumper4.pressing();\n    Brain.Screen.setCursor(1,1);\n    Brain.Screen.print(\"%d\", b);\n\n    rightA.spin(reverse);\n    rightB.spin(reverse);\n    leftA.spin(reverse);\n    leftB.spin(reverse);\n\n    if(b==1)\n    {\n      Brain.Screen.setCursor(1,1);\n      Brain.Screen.print(\"%d\", b);\n      break;\n    }\n  }\n\n  \n  rightA.setStopping(hold);\n  rightB.setStopping(hold);\n  leftA.setStopping(hold);\n  leftB.setStopping(hold);\n  rightA.stop();\n  rightB.stop();\n  leftA.stop();\n  leftB.stop();\n  wait(1300,msec);\n  // rightA.spin(forward);\n  // rightB.spin(forward);\n  // leftA.spin(forward);\n  // leftB.spin(forward);\n  // wait(1300,msec);\n  // rightA.stop();\n  // rightB.stop();\n  // leftA.stop();\n  // leftB.stop();\n\n  \n}\n\nvoid purple_bucket()\n{\n  wait(100,msec);\n  Pneumatic9.retract(cylinder2);\n  // wait(1500,msec);\n  //  Drivetrain.setDriveVelocity(100,percent);\n  // Drivetrain.drive(forward);\n  // wait(300,msec);\n  // Drivetrain.drive(reverse);\n  // wait(500,msec);\n  // Drivetrain.stop();\n  //wait(1000,msec);\n \n \n\n}\n\nvoid touch()\n{\n  counter = counter + 1;\n  Brain.Screen.setCursor(1,1);\n  Brain.Screen.print(\"%d\",counter);\n\n  if(counter == 1)\n    {\n      calibrateDrivetrain();\n      BrainInertial.setRotation(0, degrees);\n      Drivetrain.setRotation(0,degrees);\n    }\n\n    if(counter == 2)\n    {\n      // ========================================================================================================\n      // path_1\n      // ========================================================================================================\n\n      Pneumatic9.pumpOn();\n      Pneumatic9.extend(cylinder2);\n      //Pneumatic6.extend(cylinder2);\n      //wait(500,msec);\n\n      start_intake();\n\n      //Pneumatic6.retract(cylinder1);\n      Pneumatic9.extend(cylinder1);\n      straight_drive(0,1850);\n      wait(50,msec);\n      \n      set = right_Turn(100);\n      wait(50,msec);\n\n      straight_drive(90,200);\n      wait(100,msec);\n      straight_drive(90,800);\n      wait(300,msec);\n\n      set = left_Turn(-62);\n\n      straight_drive(set,2600);\n      wait(50,msec);\n\n      set = left_Turn(-90);\n      wait(50,msec);\n\n      // 2950\n      straight_drive(set,1100);\n      wait(100,msec);\n      straight_drive(set,1850);\n      wait(100,msec);\n\n      set = left_Turn(-180);\n      wait(100,msec);\n\n      straight_drive(set,1750);\n      wait(50,msec);\n\n      set = right_Turn(-50);\n      wait(50,msec);\n\n      straight_drive(set,500);\n      wait(500,msec);\n      straight_drive(set,400);\n      wait(50,msec);\n\n      set = right_Turn(-20);\n      wait(50,msec);\n\n      straight_drive(set,900);\n      wait(50,msec);\n\n      set = right_Turn(7);\n      wait(50,msec);\n\n      Drivetrain.setDriveVelocity(80,percent);\n      Drivetrain.drive(reverse);\n\n      wait(900,msec);\n      purple_bucket();\n      wait(800,msec);\n      Drivetrain.stop();\n      wait(300,msec);\n\n      \n      \n      // Pneumatic9.extend(cylinder1);\n      // wait(50,msec);  \n\n      straight_drive(0,1900);\n      wait(50,msec);\n\n      start_intake();\n      wait(50,msec);\n      while(a<=50)\n      {\n        Pneumatic9.extend(cylinder2);\n        a = Drivetrain.rotation(degrees);\n        LeftDriveSmart.setVelocity(100,percent);\n        LeftDriveSmart.spin(forward);\n        RightDriveSmart.stop();\n\n      }\n\n      LeftDriveSmart.stop();\n\n      set = left_Turn(50);\n      wait(50,msec);\n\n      // 2200\n      straight_drive(set,2200);\n      wait(50,msec);\n      \n      \n      // set = right_Turn(88);\n      // wait(100,msec);\n\n      //2300\n      // straight_drive(set,1000);\n      // wait(500,msec);\n      // straight_drive(set,1200);\n      // wait(1000,msec);\n      // straight_drive(set,300);\n      // wait(600,msec);\n\n      LeftDriveSmart.setVelocity(60,percent);\n      RightDriveSmart.setVelocity(80,percent);\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1000,msec);\n      Drivetrain.stop();\n      wait(700,msec);\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1000,msec);\n      Drivetrain.stop();\n      wait(700,msec);\n      // LeftDriveSmart.spin(forward);\n      // RightDriveSmart.spin(forward);\n      // wait(700,msec);\n      // Drivetrain.stop();\n      // wait(700,msec);\n\n      // set = right_Turn(98);\n      // wait(100,msec);\n\n      // Drivetrain.setDriveVelocity(80,percent);\n      // Drivetrain.drive(reverse);\n      // wait(2900,msec);\n      // Drivetrain.stop();\n\n      LeftDriveSmart.setVelocity(60,percent);\n      RightDriveSmart.setVelocity(90,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(2900,msec);\n      Drivetrain.stop();\n      wait(200,msec);\n\n      bucket();\n\n      rightA.setVelocity(100,percent);\n      rightB.setVelocity(100,percent);\n      leftA.setVelocity(100,percent);\n      leftB.setVelocity(100,percent);\n      rightA.spin(forward);\n      rightB.spin(forward);\n      leftA.spin(forward);\n      leftB.spin(forward);\n\n      LeftDriveSmart.setVelocity(100,percent);\n      RightDriveSmart.setVelocity(40,percent);\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1500,msec);\n      Pneumatic9.extend(cylinder1);\n      wait(1200,msec);\n      //RightDriveSmart.stop();\n\n      Drivetrain.stop();\n\n      set = right_Turn(180);\n      wait(50,msec);\n\n      straight_drive(set,2400);\n      wait(50,msec);\n\n      Drivetrain.setDriveVelocity(80,percent);\n      Drivetrain.drive(reverse);\n      wait(700,msec);\n      Drivetrain.stop();\n\n      set = right_Turn(280);\n      wait(50,msec);\n\n      LeftDriveSmart.setVelocity(100,percent);\n      RightDriveSmart.setVelocity(78,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(2800,msec);\n      Drivetrain.stop();\n\n      straight_drive(set,120);\n      wait(50,msec);\n\n      set = right_Turn(320);\n      wait(50,msec);\n\n      LeftDriveSmart.setVelocity(70,percent);\n      RightDriveSmart.setVelocity(100,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(1000,msec);\n      purple_bucket();\n      wait(500,msec);\n      Drivetrain.stop();\n      wait(300,msec);\n      \n\n      straight_drive(360,1500);\n      wait(100,msec);\n\n      Drivetrain.stop();\n      stop_intake();\n\n\n      // ========================================================================================================\n      // path_2\n      // =========================================================================================================\n\n      /*\n      \n\n      Pneumatic9.pumpOn();\n      Pneumatic9.extend(cylinder2);\n      start_intake();\n      Pneumatic9.extend(cylinder1);\n\n\n      straight_drive(0,4200);\n      wait(50,msec);\n\n      set = right_Turn(55);\n      wait(50,msec);\n\n      straight_drive(set,700);\n      wait(50,msec);\n\n\n      LeftDriveSmart.setVelocity(60,percent);\n      RightDriveSmart.setVelocity(80,percent);\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1000,msec);\n      Drivetrain.stop();\n\n      //wait(700,msec);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(500,msec);\n\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1500,msec);\n      Drivetrain.stop();\n\n      //wait(700,msec);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(500,msec);\n\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(1200,msec);\n      Drivetrain.stop();\n\n      //wait(700,msec);\n\n      LeftDriveSmart.setVelocity(60,percent);\n      RightDriveSmart.setVelocity(90,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(3500,msec);\n      Drivetrain.stop();\n      wait(200,msec);\n\n      bucket();\n\n      rightA.setVelocity(100,percent);\n      rightB.setVelocity(100,percent);\n      leftA.setVelocity(100,percent);\n      leftB.setVelocity(100,percent);\n      rightA.spin(forward);\n      rightB.spin(forward);\n      leftA.spin(forward);\n      leftB.spin(forward);\n\n      LeftDriveSmart.setVelocity(100,percent);\n      RightDriveSmart.setVelocity(40,percent);\n      LeftDriveSmart.spin(forward);\n      RightDriveSmart.spin(forward);\n      wait(2000,msec);\n      Pneumatic9.extend(cylinder1);\n      wait(700,msec);\n      //RightDriveSmart.stop();\n\n      Drivetrain.stop();\n\n      set = right_Turn(180);\n      wait(50,msec);\n\n      straight_drive(set,2400);\n      wait(50,msec);\n\n      LeftDriveSmart.setVelocity(60,percent);\n      RightDriveSmart.setVelocity(90,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(1000,msec);\n\n      set = right_Turn(270);\n      wait(50,msec);\n\n      straight_drive(set,1900);\n      wait(50,msec);\n\n      set = left_Turn(180);\n      wait(50,msec);\n\n\n      straight_drive(set,1750);\n      wait(50,msec);\n\n      set = right_Turn(300);\n      wait(50,msec);\n\n      straight_drive(set,500);\n      wait(500,msec);\n      straight_drive(set,200);\n      wait(50,msec);\n      \n      \n\n      LeftDriveSmart.setVelocity(50,percent);\n      RightDriveSmart.setVelocity(50,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(500,msec);\n      Drivetrain.stop();\n\n      // straight_drive(set,150);\n      // wait(500,msec);\n\n      set = right_Turn(480);\n      wait(50,msec);\n\n      straight_drive(set,2700);\n      wait(500,msec);\n\n      set = left_Turn(430);\n      wait(50,msec);\n\n      LeftDriveSmart.setVelocity(100,percent);\n      RightDriveSmart.setVelocity(100,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(1200,msec);\n      purple_bucket();\n      wait(800,msec);\n      Drivetrain.stop();\n\n      straight_drive(set,4500);\n      wait(500,msec);\n\n      set = left_Turn(350);\n      wait(50,msec);\n\n      straight_drive(set,1650);\n      wait(500,msec);\n\n      set = right_Turn(450);\n      wait(50,msec);\n\n      straight_drive(set,1800);\n      wait(500,msec);\n\n      LeftDriveSmart.setVelocity(50,percent);\n      RightDriveSmart.setVelocity(50,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(300,msec);\n      Drivetrain.stop();\n\n      set = left_Turn(330);\n      wait(50,msec);\n\n      LeftDriveSmart.setVelocity(100,percent);\n      RightDriveSmart.setVelocity(100,percent);\n      LeftDriveSmart.spin(reverse);\n      RightDriveSmart.spin(reverse);\n      wait(1500,msec);\n      Drivetrain.stop();\n\n      bucket();\n\n      straight_drive(set,1000);\n      wait(500,msec);\n      Drivetrain.stop();\n\n      stop_intake();\n      Pneumatic9.extend(cylinder1);\n      Pneumatic9.pumpOff();\n\n    */\n\n\n\n    }\n\n    if(counter == 3)\n    {\n      Drivetrain.stop();\n      rightA.stop();\n      rightB.stop();\n      leftA.stop();\n      leftB.stop();\n\n    }\n\n\n}\n\nint main() \n{\n  Pneumatic9.pumpOff();\n  TouchLED11.pressed(touch);\n\n    \n  \n\n\n/*\n9 = right\n6 = left\n\n9 -- cylinder_1 == forward\n6 -- cylinder_2 == forward\n\n6 -- cylinder_1 == backward\n9 -- cylinder_2 == backward\n\n*/\n\n\n}","textLanguage":"cpp","rconfig":[{"port":[1],"name":"leftA","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[2],"name":"leftB","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[7],"name":"rightA","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[8],"name":"rightB","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[3,10,0],"name":"Drivetrain","customName":false,"deviceType":"Drivetrain","deviceClass":"smartdrive","setting":{"type":"2-motor","wheelSize":"200mm","gearRatio":"3:1","direction":"fwd","gyroType":"integrated","width":"173","unit":"mm","wheelbase":"76","wheelbaseUnit":"mm","xOffset":"0","yOffset":"0","thetaOffset":"0"},"triportSourcePort":22},{"port":[6],"name":"Gyro6","customName":false,"deviceType":"Gyro","deviceClass":"gyro","setting":{},"triportSourcePort":22},{"port":[9],"name":"Pneumatic9","customName":false,"deviceType":"Pneumatic","deviceClass":"pneumatic","setting":{"cylinder1":"cylinder1","cylinder2":"cylinder2","cylinder1_reversed":"false","cylinder2_reversed":"false"},"triportSourcePort":22},{"port":[5],"name":"Bumper4","customName":true,"deviceType":"Bumper","deviceClass":"bumper","setting":{},"triportSourcePort":22},{"port":[11],"name":"TouchLED11","customName":false,"deviceType":"TouchLED","deviceClass":"touchled","setting":{},"triportSourcePort":22}],"slot":1,"platform":"IQ","sdkVersion":"20230818.11.00.00","appVersion":"3.0.4","minVersion":"3.0.0","fileFormat":"1.2.0","icon":"","targetBrainGen":"Second","v5SoundsEnabled":false,"target":"Physical"}
+#pragma region VEXcode Generated Robot Configuration
+// Make sure all required headers are included.
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <string.h>
+
+
+#include "vex.h"
+
+using namespace vex;
+
+// Brain should be defined by default
+brain Brain;
+
+
+// START IQ MACROS
+#define waitUntil(condition)                                                   \
+  do {                                                                         \
+    wait(5, msec);                                                             \
+  } while (!(condition))
+
+#define repeat(iterations)                                                     \
+  for (int iterator = 0; iterator < iterations; iterator++)
+// END IQ MACROS
+
+
+// Robot configuration code.
+inertial BrainInertial = inertial();
+motor leftA = motor(PORT1, false);
+motor leftB = motor(PORT2, false);
+motor rightA = motor(PORT7, true);
+motor rightB = motor(PORT8, true);
+motor LeftDriveSmart = motor(PORT3, 3, false);
+motor RightDriveSmart = motor(PORT10, 3, true);
+
+smartdrive Drivetrain = smartdrive(LeftDriveSmart, RightDriveSmart, BrainInertial, 200);
+
+gyro Gyro6 = gyro(PORT6);
+pneumatic Pneumatic9 = pneumatic(PORT9);
+bumper Bumper4 = bumper(PORT5);
+touchled TouchLED11 = touchled(PORT11);
+
+
+// generating and setting random seed
+void initializeRandomSeed(){
+  wait(100,msec);
+  double xAxis = BrainInertial.acceleration(xaxis) * 1000;
+  double yAxis = BrainInertial.acceleration(yaxis) * 1000;
+  double zAxis = BrainInertial.acceleration(zaxis) * 1000;
+  // Combine these values into a single integer
+  int seed = int(
+    xAxis + yAxis + zAxis
+  );
+  // Set the seed
+  srand(seed); 
+}
+
+bool vexcode_initial_drivetrain_calibration_completed = false;
+void calibrateDrivetrain() {
+  if (!vexcode_initial_drivetrain_calibration_completed) {
+    Pneumatic9.pumpOff();
+  }
+  wait(200, msec);
+  Brain.Screen.print("Calibrating");
+  Brain.Screen.newLine();
+  Brain.Screen.print("Inertial");
+  BrainInertial.calibrate();
+  while (BrainInertial.isCalibrating()) {
+    wait(25, msec);
+  }
+  if (!vexcode_initial_drivetrain_calibration_completed) {
+    Pneumatic9.pumpOn();
+  }
+  vexcode_initial_drivetrain_calibration_completed = true;
+  // Clears the screen and returns the cursor to row 1, column 1.
+  Brain.Screen.clearScreen();
+  Brain.Screen.setCursor(1, 1);
+}
+
+void vexcodeInit() {
+
+  // Calibrate the Drivetrain
+  calibrateDrivetrain();
+
+  // Initializing random seed.
+  initializeRandomSeed(); 
+}
+
+#pragma endregion VEXcode Generated Robot Configuration
+
+// Include the IQ Library
+#include "vex.h"
+  
+// Allows for easier use of the VEX Library
+using namespace vex;
+
+float D;
+float kp;
+float ki;
+float kd;
+float integral  = 0;
+float previous_error = 0;
+float ang;
+float op;//pid output in term of speed
+float dis;
+float speed = 70;
+float r_speed = 70;
+float l_speed = 70;
+float error;
+float pp;//current angle of the gyro
+float sp;//desired angle of the gyro
+float P;
+float I;
+float r;//final speed of the right motor
+float l;
+float dis_initial;
+float dis_cm;
+int max_distance;//setpoint for the distance
+float final_angle;
+float head;
+float g;
+float f_an;
+float e;
+float set;
+float pos;
+float errord;
+// float op2;
+double av;
+int a;
+int b;
+int stopping;
+int s;
+int counter = 0;
+
+float pid_cal(float error, float kp, float ki, float kd)
+{
+  //error = sp - pp;
+  Brain.Screen.setCursor(3,1);
+  Brain.Screen.print("error: %f",integral);
+
+  // proportional
+  P = error*kp;
+
+  // integral part
+  integral = integral + error;
+  I = ki*integral;
+
+  // darivative
+  D = kd*(error - previous_error);
+  previous_error = error;
+
+  op = P + I +D;
+
+  return op;
+
+}
+
+int breaking(float error, float previous_error, float av)
+{
+  if(error>-2 && error<2 && previous_error> -1 && previous_error<1)
+  {
+    printf("%f\n",av);
+    RightDriveSmart.setStopping(brake);
+    LeftDriveSmart.setStopping(brake);
+    RightDriveSmart.stop();
+    LeftDriveSmart.stop();
+    
+    if(av<20 && av>-20)
+    {
+      stopping = 1;
+    }
+    else 
+    {
+      stopping = 0;
+
+    }
+    
+  }
+
+  return stopping;
+
+}
+
+void stop_intake()
+{
+  rightA.stop();
+  rightB.stop();
+  leftA.stop();
+  leftB.stop();
+}
+
+void start_intake()
+{
+  rightA.setVelocity(100,percent);
+  rightB.setVelocity(100,percent);
+  leftA.setVelocity(100,percent);
+  leftB.setVelocity(100,percent);
+  rightA.spin(forward);
+  rightB.spin(forward);
+  leftA.spin(forward);
+  leftB.spin(forward);
+
+}
+
+// 1.
+// RIGHT TURNING PID 
+// ========================================================================================================
+float right_Turn(float sp)
+{
+  // kp = 0.6;
+  // ki = 0.000000000001;
+  // kd = 0.00009;
+
+  kp = 0.65;
+  ki = 0.000000000000001;
+  kd = 0.0000000000009;
+
+  float integral = 0;
+  float previous_error = 0;
+  s = 0; // initialze stopping condition as 0
+
+  Brain.Screen.clearScreen();
+  RightDriveSmart.setMaxTorque(100,percent);
+  LeftDriveSmart.setMaxTorque(100,percent);
+
+  while (true) 
+  {
+
+  ang = Drivetrain.rotation(degrees);
+  pp = ang;
+
+  av = Gyro6.rate();
+  
+  Brain.Screen.setCursor(1,1);
+  Brain.Screen.print("Angle: %f",pp);
+
+  Brain.Screen.setCursor(2,1);
+  Brain.Screen.print("heading: %f",head);
+
+  error = sp - pp;
+
+  // PID calculation
+  op = pid_cal(error,kp,ki,kd);
+
+  if(op>= 100)
+  {
+    op = 100;
+  }
+
+  if(op<= -100)
+  {
+    op = -100;
+  }
+  
+
+  Brain.Screen.setCursor(5,1);
+  Brain.Screen.print("op: %f",op);
+
+
+  if(op>0)
+  {
+    op = (0.7*op);
+
+  }
+
+  if(op<0)
+  {
+    // op = (0.7*op);
+    // op = 0 - op;
+    op = 5;
+
+  }
+
+  
+  Brain.Screen.setCursor(4,1);
+  Brain.Screen.print("op: %f",op);
+
+  if(error>0)
+  {
+
+    RightDriveSmart.setVelocity(op+5,percent);
+    LeftDriveSmart.setVelocity(op+5,percent);
+    RightDriveSmart.spin(reverse);
+    LeftDriveSmart.spin(forward);
+
+    // s = breaking(error, previous_error,av);
+    // if(s == 1)
+    // {
+    //   break;
+    // }
+     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)
+  {
+    printf("%f\n",av);
+    RightDriveSmart.setStopping(brake);
+    LeftDriveSmart.setStopping(brake);
+    RightDriveSmart.stop();
+    LeftDriveSmart.stop();
+    
+    if(av<20 && av>-20)
+    {
+      break;
+    }
+   
+    
+  }
+
+  
+  }
+  else if(error<0)
+  {
+    RightDriveSmart.setVelocity(op+5,percent);
+    LeftDriveSmart.setVelocity(op+5,percent);
+    RightDriveSmart.spin(forward);
+    LeftDriveSmart.spin(reverse);
+
+    // breaking(error, previous_error,av);
+    // if(s == 1)
+    // {
+    //   break;
+    // }
+    if(error>-2 && error<2 && previous_error> -1 && previous_error<1)
+  {
+    printf("%f\n",av);
+    RightDriveSmart.setStopping(brake);
+    LeftDriveSmart.setStopping(brake);
+    RightDriveSmart.stop();
+    LeftDriveSmart.stop();
+    
+    if(av<20 && av>-20)
+    {
+      break;
+    }
+   
+    
+  }
+  }
+
+  previous_error = error;
+  
+  
+
+  
+}
+Brain.Screen.clearScreen();
+Brain.Screen.setCursor(1,1);
+Brain.Screen.print("done");
+return sp;
+
+
+}
+// ========================================================================================================
+
+
+//2. 
+// LEFT TURNNING PID
+// ========================================================================================================
+float left_Turn(float sp)
+{
+  // kp = 0.6;
+  // ki = 0.000000000001;
+  // kd = 0.00000009;
+
+  kp = 0.65;
+  ki = 0.000000000000001;
+  kd = 0.0000000000009;
+
+  float integral = 0;
+  float previous_error = 0;
+  s = 0; // initialze stopping condition as 0
+
+  Brain.Screen.clearScreen();
+
+  while (true) {
+
+  ang = Drivetrain.rotation(degrees);
+  pp = ang;
+  
+  
+  Brain.Screen.setCursor(1,1);
+  Brain.Screen.print("Angle: %f",pp);
+  Brain.Screen.setCursor(3,1);
+  Brain.Screen.print("sp: %f",sp);
+
+  av = Gyro6.rate();
+
+  error = pp - sp;
+
+  // PID calculation
+  op = pid_cal(error,kp,ki,kd);
+
+  if(op>= 100)
+  {
+    op = 100;
+  }
+
+  if(op<= -100)
+  {
+    op = -100;
+  }
+
+  
+  if(op>0)
+  {
+    op = (0.7*op);
+
+  }
+
+  if(op<0)
+  {
+    // op = (0.7*op);
+    // op = 0 - op;
+
+    op = 5;
+  }
+
+  Brain.Screen.setCursor(2,1);
+  Brain.Screen.print("op: %f",op);
+  Brain.Screen.setCursor(4,1);
+  Brain.Screen.print("error: %f",error);
+
+  
+  if(error<0)
+  {
+    RightDriveSmart.setVelocity(op+5,percent);
+    LeftDriveSmart.setVelocity(op+5,percent);
+    RightDriveSmart.spin(reverse);
+
+    // s = breaking(error, previous_error,av);
+    // if(s == 1)
+    // {
+    //   break;
+    // }
+     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)
+  {
+    printf("%f\n",av);
+    RightDriveSmart.setStopping(brake);
+    LeftDriveSmart.setStopping(brake);
+    RightDriveSmart.stop();
+    LeftDriveSmart.stop();
+    
+    if(av<20 && av>-20)
+    {
+      break;
+    }
+   
+    
+  }
+  
+  }
+  else if(error>0)
+  {
+    RightDriveSmart.setVelocity(op+5,percent);
+    LeftDriveSmart.setVelocity(op+5,percent);
+    RightDriveSmart.spin(forward);
+    LeftDriveSmart.spin(reverse);
+
+    // s = breaking(error, previous_error,av);
+    // if(s == 1)
+    // {
+    //   break;
+    // }
+     if(error>-2 && error<2 && previous_error> -1 && previous_error<1)
+  {
+    printf("%f\n",av);
+    RightDriveSmart.setStopping(brake);
+    LeftDriveSmart.setStopping(brake);
+    RightDriveSmart.stop();
+    LeftDriveSmart.stop();
+    
+    if(av<20 && av>-20)
+    {
+      break;
+    }
+   
+    
+  }
+
+  }
+  previous_error = error;
+
+}
+  
+
+Brain.Screen.clearScreen();
+Brain.Screen.setCursor(1,1);
+Brain.Screen.print("done");
+return sp;
+
+}
+// ========================================================================================================
+
+
+//3. 
+// STRAIGHT DRIVE PID
+// ========================================================================================================
+void straight_drive(float set, int x)
+{
+  kp = 3;
+  ki = 0.000001;
+  kd = 1500;
+  max_distance = x;
+  previous_error = 0;
+  integral = 0;
+
+  float speed = 90;
+  float r_speed = 90;
+  float l_speed = 90;
+
+  Brain.Screen.clearScreen();
+  dis_initial = RightDriveSmart.position(degrees);
+  dis = RightDriveSmart.position(degrees);
+  dis = dis - dis_initial;
+
+  while (dis<max_distance) 
+  {
+
+    Drivetrain.setDriveVelocity(speed,percent);
+    Drivetrain.drive(forward);
+
+    dis = RightDriveSmart.position(degrees);
+    dis = dis - dis_initial;
+    dis_cm = dis/27.8;
+
+    ang = Drivetrain.rotation(degrees);
+    pp = ang;
+    sp = set;
+
+    error = pp - sp;
+
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("ang: %f",pp);
+
+    // proportional part
+    P = error*kp;
+
+    // integral part
+    integral = integral + error;
+    I = ki*integral;
+
+    // darivative
+    D = kd*(error - previous_error);
+    previous_error = error;
+
+    op = P + I +D;
+
+    if(op>= 100)
+    {
+      op = 100;
+    }
+
+    if(op<= -100)
+    {
+      op = -100;
+    }
+
+    // set op in range of 0 - 30
+    // ================================
+                                      
+    op = 0.3*op;
+    Brain.Screen.setCursor(2, 1);
+    Brain.Screen.print("op: %f",op);
+
+    // ================================
+
+    if(op>0)
+    {
+      r = r_speed + op;
+      l = l_speed - op;
+      RightDriveSmart.setVelocity(r,percent);
+      LeftDriveSmart.setVelocity(l,percent);
+
+    }
+    else if(op<0)
+    {
+
+      r = r_speed + op;
+      l = l_speed - op;
+      RightDriveSmart.setVelocity(r,percent);
+      LeftDriveSmart.setVelocity(l,percent);
+
+    }
+
+    Brain.Screen.setCursor(3, 1);
+    Brain.Screen.print("error: %f",error);
+
+    Brain.Screen.setCursor(4, 1);
+    Brain.Screen.print("l: %f",l);
+    Brain.Screen.setCursor(5, 1);
+    Brain.Screen.print("r: %f",r);
+
+    }
+
+    Drivetrain.stop();
+    Drivetrain.setStopping(brake);
+    Drivetrain.stop();
+    ang = Drivetrain.heading(degrees);
+    
+
+}
+// ========================================================================================================
+
+void bucket()
+{
+  Pneumatic9.retract(cylinder1);
+  rightA.setVelocity(100,percent);
+  rightB.setVelocity(100,percent);
+  leftA.setVelocity(100,percent);
+  leftB.setVelocity(100,percent);
+  while(true)
+  {
+    b = Bumper4.pressing();
+    Brain.Screen.setCursor(1,1);
+    Brain.Screen.print("%d", b);
+
+    rightA.spin(reverse);
+    rightB.spin(reverse);
+    leftA.spin(reverse);
+    leftB.spin(reverse);
+
+    if(b==1)
+    {
+      Brain.Screen.setCursor(1,1);
+      Brain.Screen.print("%d", b);
+      break;
+    }
+  }
+
+  
+  rightA.setStopping(hold);
+  rightB.setStopping(hold);
+  leftA.setStopping(hold);
+  leftB.setStopping(hold);
+  rightA.stop();
+  rightB.stop();
+  leftA.stop();
+  leftB.stop();
+  wait(1300,msec);
+  // rightA.spin(forward);
+  // rightB.spin(forward);
+  // leftA.spin(forward);
+  // leftB.spin(forward);
+  // wait(1300,msec);
+  // rightA.stop();
+  // rightB.stop();
+  // leftA.stop();
+  // leftB.stop();
+
+  
+}
+
+void purple_bucket()
+{
+  wait(100,msec);
+  Pneumatic9.retract(cylinder2);
+  // wait(1500,msec);
+  //  Drivetrain.setDriveVelocity(100,percent);
+  // Drivetrain.drive(forward);
+  // wait(300,msec);
+  // Drivetrain.drive(reverse);
+  // wait(500,msec);
+  // Drivetrain.stop();
+  //wait(1000,msec);
+ 
+ 
+
+}
+
+void touch()
+{
+  counter = counter + 1;
+  Brain.Screen.setCursor(1,1);
+  Brain.Screen.print("%d",counter);
+
+  if(counter == 1)
+    {
+      calibrateDrivetrain();
+      BrainInertial.setRotation(0, degrees);
+      Drivetrain.setRotation(0,degrees);
+    }
+
+    if(counter == 2)
+    {
+      // ========================================================================================================
+      // path_1
+      // ========================================================================================================
+
+      Pneumatic9.pumpOn();
+      Pneumatic9.extend(cylinder2);
+      //Pneumatic6.extend(cylinder2);
+      //wait(500,msec);
+
+      start_intake();
+
+      //Pneumatic6.retract(cylinder1);
+      Pneumatic9.extend(cylinder1);
+      straight_drive(0,1850);
+      wait(50,msec);
+      
+      set = right_Turn(100);
+      wait(50,msec);
+
+      straight_drive(90,200);
+      wait(100,msec);
+      straight_drive(90,800);
+      wait(300,msec);
+
+      set = left_Turn(-62);
+
+      straight_drive(set,2600);
+      wait(50,msec);
+
+      set = left_Turn(-90);
+      wait(50,msec);
+
+      // 2950
+      straight_drive(set,1100);
+      wait(100,msec);
+      straight_drive(set,1850);
+      wait(100,msec);
+
+      set = left_Turn(-180);
+      wait(100,msec);
+
+      straight_drive(set,1750);
+      wait(50,msec);
+
+      set = right_Turn(-50);
+      wait(50,msec);
+
+      straight_drive(set,500);
+      wait(500,msec);
+      straight_drive(set,400);
+      wait(50,msec);
+
+      set = right_Turn(-20);
+      wait(50,msec);
+
+      straight_drive(set,900);
+      wait(50,msec);
+
+      set = right_Turn(7);
+      wait(50,msec);
+
+      Drivetrain.setDriveVelocity(80,percent);
+      Drivetrain.drive(reverse);
+
+      wait(900,msec);
+      purple_bucket();
+      wait(800,msec);
+      Drivetrain.stop();
+      wait(300,msec);
+
+      
+      
+      // Pneumatic9.extend(cylinder1);
+      // wait(50,msec);  
+
+      straight_drive(0,1900);
+      wait(50,msec);
+
+      start_intake();
+      wait(50,msec);
+      while(a<=50)
+      {
+        Pneumatic9.extend(cylinder2);
+        a = Drivetrain.rotation(degrees);
+        LeftDriveSmart.setVelocity(100,percent);
+        LeftDriveSmart.spin(forward);
+        RightDriveSmart.stop();
+
+      }
+
+      LeftDriveSmart.stop();
+
+      set = left_Turn(50);
+      wait(50,msec);
+
+      // 2200
+      straight_drive(set,2200);
+      wait(50,msec);
+      
+      
+      // set = right_Turn(88);
+      // wait(100,msec);
+
+      //2300
+      // straight_drive(set,1000);
+      // wait(500,msec);
+      // straight_drive(set,1200);
+      // wait(1000,msec);
+      // straight_drive(set,300);
+      // wait(600,msec);
+
+      LeftDriveSmart.setVelocity(60,percent);
+      RightDriveSmart.setVelocity(80,percent);
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1000,msec);
+      Drivetrain.stop();
+      wait(700,msec);
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1000,msec);
+      Drivetrain.stop();
+      wait(700,msec);
+      // LeftDriveSmart.spin(forward);
+      // RightDriveSmart.spin(forward);
+      // wait(700,msec);
+      // Drivetrain.stop();
+      // wait(700,msec);
+
+      // set = right_Turn(98);
+      // wait(100,msec);
+
+      // Drivetrain.setDriveVelocity(80,percent);
+      // Drivetrain.drive(reverse);
+      // wait(2900,msec);
+      // Drivetrain.stop();
+
+      LeftDriveSmart.setVelocity(60,percent);
+      RightDriveSmart.setVelocity(90,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(2900,msec);
+      Drivetrain.stop();
+      wait(200,msec);
+
+      bucket();
+
+      rightA.setVelocity(100,percent);
+      rightB.setVelocity(100,percent);
+      leftA.setVelocity(100,percent);
+      leftB.setVelocity(100,percent);
+      rightA.spin(forward);
+      rightB.spin(forward);
+      leftA.spin(forward);
+      leftB.spin(forward);
+
+      LeftDriveSmart.setVelocity(100,percent);
+      RightDriveSmart.setVelocity(40,percent);
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1500,msec);
+      Pneumatic9.extend(cylinder1);
+      wait(1200,msec);
+      //RightDriveSmart.stop();
+
+      Drivetrain.stop();
+
+      set = right_Turn(180);
+      wait(50,msec);
+
+      straight_drive(set,2400);
+      wait(50,msec);
+
+      Drivetrain.setDriveVelocity(80,percent);
+      Drivetrain.drive(reverse);
+      wait(700,msec);
+      Drivetrain.stop();
+
+      set = right_Turn(280);
+      wait(50,msec);
+
+      LeftDriveSmart.setVelocity(100,percent);
+      RightDriveSmart.setVelocity(78,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(2800,msec);
+      Drivetrain.stop();
+
+      straight_drive(set,120);
+      wait(50,msec);
+
+      set = right_Turn(320);
+      wait(50,msec);
+
+      LeftDriveSmart.setVelocity(70,percent);
+      RightDriveSmart.setVelocity(100,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(1000,msec);
+      purple_bucket();
+      wait(500,msec);
+      Drivetrain.stop();
+      wait(300,msec);
+      
+
+      straight_drive(360,1500);
+      wait(100,msec);
+
+      Drivetrain.stop();
+      stop_intake();
+
+
+      // ========================================================================================================
+      // path_2
+      // =========================================================================================================
+
+      /*
+      
+
+      Pneumatic9.pumpOn();
+      Pneumatic9.extend(cylinder2);
+      start_intake();
+      Pneumatic9.extend(cylinder1);
+
+
+      straight_drive(0,4200);
+      wait(50,msec);
+
+      set = right_Turn(55);
+      wait(50,msec);
+
+      straight_drive(set,700);
+      wait(50,msec);
+
+
+      LeftDriveSmart.setVelocity(60,percent);
+      RightDriveSmart.setVelocity(80,percent);
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1000,msec);
+      Drivetrain.stop();
+
+      //wait(700,msec);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(500,msec);
+
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1500,msec);
+      Drivetrain.stop();
+
+      //wait(700,msec);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(500,msec);
+
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(1200,msec);
+      Drivetrain.stop();
+
+      //wait(700,msec);
+
+      LeftDriveSmart.setVelocity(60,percent);
+      RightDriveSmart.setVelocity(90,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(3500,msec);
+      Drivetrain.stop();
+      wait(200,msec);
+
+      bucket();
+
+      rightA.setVelocity(100,percent);
+      rightB.setVelocity(100,percent);
+      leftA.setVelocity(100,percent);
+      leftB.setVelocity(100,percent);
+      rightA.spin(forward);
+      rightB.spin(forward);
+      leftA.spin(forward);
+      leftB.spin(forward);
+
+      LeftDriveSmart.setVelocity(100,percent);
+      RightDriveSmart.setVelocity(40,percent);
+      LeftDriveSmart.spin(forward);
+      RightDriveSmart.spin(forward);
+      wait(2000,msec);
+      Pneumatic9.extend(cylinder1);
+      wait(700,msec);
+      //RightDriveSmart.stop();
+
+      Drivetrain.stop();
+
+      set = right_Turn(180);
+      wait(50,msec);
+
+      straight_drive(set,2400);
+      wait(50,msec);
+
+      LeftDriveSmart.setVelocity(60,percent);
+      RightDriveSmart.setVelocity(90,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(1000,msec);
+
+      set = right_Turn(270);
+      wait(50,msec);
+
+      straight_drive(set,1900);
+      wait(50,msec);
+
+      set = left_Turn(180);
+      wait(50,msec);
+
+
+      straight_drive(set,1750);
+      wait(50,msec);
+
+      set = right_Turn(300);
+      wait(50,msec);
+
+      straight_drive(set,500);
+      wait(500,msec);
+      straight_drive(set,200);
+      wait(50,msec);
+      
+      
+
+      LeftDriveSmart.setVelocity(50,percent);
+      RightDriveSmart.setVelocity(50,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(500,msec);
+      Drivetrain.stop();
+
+      // straight_drive(set,150);
+      // wait(500,msec);
+
+      set = right_Turn(480);
+      wait(50,msec);
+
+      straight_drive(set,2700);
+      wait(500,msec);
+
+      set = left_Turn(430);
+      wait(50,msec);
+
+      LeftDriveSmart.setVelocity(100,percent);
+      RightDriveSmart.setVelocity(100,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(1200,msec);
+      purple_bucket();
+      wait(800,msec);
+      Drivetrain.stop();
+
+      straight_drive(set,4500);
+      wait(500,msec);
+
+      set = left_Turn(350);
+      wait(50,msec);
+
+      straight_drive(set,1650);
+      wait(500,msec);
+
+      set = right_Turn(450);
+      wait(50,msec);
+
+      straight_drive(set,1800);
+      wait(500,msec);
+
+      LeftDriveSmart.setVelocity(50,percent);
+      RightDriveSmart.setVelocity(50,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(300,msec);
+      Drivetrain.stop();
+
+      set = left_Turn(330);
+      wait(50,msec);
+
+      LeftDriveSmart.setVelocity(100,percent);
+      RightDriveSmart.setVelocity(100,percent);
+      LeftDriveSmart.spin(reverse);
+      RightDriveSmart.spin(reverse);
+      wait(1500,msec);
+      Drivetrain.stop();
+
+      bucket();
+
+      straight_drive(set,1000);
+      wait(500,msec);
+      Drivetrain.stop();
+
+      stop_intake();
+      Pneumatic9.extend(cylinder1);
+      Pneumatic9.pumpOff();
+
+    */
+
+
+
+    }
+
+    if(counter == 3)
+    {
+      Drivetrain.stop();
+      rightA.stop();
+      rightB.stop();
+      leftA.stop();
+      leftB.stop();
+
+    }
+
+
+}
+
+int main() 
+{
+  Pneumatic9.pumpOff();
+  TouchLED11.pressed(touch);
+
+    
+  
+
+
+/*
+9 = right
+6 = left
+
+9 -- cylinder_1 == forward
+6 -- cylinder_2 == forward
+
+6 -- cylinder_1 == backward
+9 -- cylinder_2 == backward
+
+*/
+
+
+}
