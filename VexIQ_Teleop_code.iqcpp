@@ -1,1 +1,307 @@
-{"mode":"Text","textContent":"#pragma region VEXcode Generated Robot Configuration\n// Make sure all required headers are included.\n#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n#include <math.h>\n#include <string.h>\n\n\n#include \"vex.h\"\n\nusing namespace vex;\n\n// Brain should be defined by default\nbrain Brain;\n\n\n// START IQ MACROS\n#define waitUntil(condition)                                                   \\\n  do {                                                                         \\\n    wait(5, msec);                                                             \\\n  } while (!(condition))\n\n#define repeat(iterations)                                                     \\\n  for (int iterator = 0; iterator < iterations; iterator++)\n// END IQ MACROS\n\n\n// Robot configuration code.\ninertial BrainInertial = inertial();\ncontroller Controller = controller();\nmotor LeftDriveSmart = motor(PORT3, 3, false);\nmotor RightDriveSmart = motor(PORT10, 3, true);\ndrivetrain Drivetrain = drivetrain(LeftDriveSmart, RightDriveSmart, 200, 173, 76, mm, 1);\nmotor Motor1 = motor(PORT1, true);\nmotor Motor2 = motor(PORT2, true);\nmotor Motor7 = motor(PORT7, false);\nmotor Motor8 = motor(PORT8, false);\npneumatic Pneumatic9 = pneumatic(PORT9);\nbumper Bumper5 = bumper(PORT5);\nbumper Bumper4 = bumper(PORT4);\n\n\n\n// define variable for remote controller enable/disable\nbool RemoteControlCodeEnabled = true;\n// define variables used for controlling motors based on controller inputs\nbool DrivetrainLNeedsToBeStopped_Controller = true;\nbool DrivetrainRNeedsToBeStopped_Controller = true;\n\n// define a task that will handle monitoring inputs from Controller\nint rc_auto_loop_function_Controller() {\n  // process the controller input every 20 milliseconds\n  // update the motors based on the input values\n  while(true) {\n    if(RemoteControlCodeEnabled) {\n      \n      // calculate the drivetrain motor velocities from the controller joystick axies\n      // left = AxisA + AxisC\n      // right = AxisA - AxisC\n      int drivetrainLeftSideSpeed = Controller.AxisA.position() + Controller.AxisC.position();\n      int drivetrainRightSideSpeed = Controller.AxisA.position() - Controller.AxisC.position();\n      \n      // check if the value is inside of the deadband range\n      if (drivetrainLeftSideSpeed < 5 && drivetrainLeftSideSpeed > -5) {\n        // check if the left motor has already been stopped\n        if (DrivetrainLNeedsToBeStopped_Controller) {\n          // stop the left drive motor\n          LeftDriveSmart.stop();\n          // tell the code that the left motor has been stopped\n          DrivetrainLNeedsToBeStopped_Controller = false;\n        }\n      } else {\n        // reset the toggle so that the deadband code knows to stop the left motor nexttime the input is in the deadband range\n        DrivetrainLNeedsToBeStopped_Controller = true;\n      }\n      // check if the value is inside of the deadband range\n      if (drivetrainRightSideSpeed < 5 && drivetrainRightSideSpeed > -5) {\n        // check if the right motor has already been stopped\n        if (DrivetrainRNeedsToBeStopped_Controller) {\n          // stop the right drive motor\n          RightDriveSmart.stop();\n          // tell the code that the right motor has been stopped\n          DrivetrainRNeedsToBeStopped_Controller = false;\n        }\n      } else {\n        // reset the toggle so that the deadband code knows to stop the right motor next time the input is in the deadband range\n        DrivetrainRNeedsToBeStopped_Controller = true;\n      }\n      \n      // only tell the left drive motor to spin if the values are not in the deadband range\n      if (DrivetrainLNeedsToBeStopped_Controller) {\n        LeftDriveSmart.setVelocity(drivetrainLeftSideSpeed, percent);\n        LeftDriveSmart.spin(forward);\n      }\n      // only tell the right drive motor to spin if the values are not in the deadband range\n      if (DrivetrainRNeedsToBeStopped_Controller) {\n        RightDriveSmart.setVelocity(drivetrainRightSideSpeed, percent);\n        RightDriveSmart.spin(forward);\n      }\n    }\n    // wait before repeating the process\n    wait(20, msec);\n  }\n  return 0;\n}\n\ntask rc_auto_loop_task_Controller(rc_auto_loop_function_Controller);\n\n#pragma endregion VEXcode Generated Robot Configuration\n\n// Include the IQ Library\n#include \"vex.h\"\n  \n// Allows for easier use of the VEX Library\nusing namespace vex;\n\nfloat myVariable;\nint counter=0;\nint rem;\n\nvoid stop()\n{\n  Motor1.stop();\n  Motor2.stop();\n  Motor7.stop();\n  Motor8.stop();\n\n}\nvoid Forward()\n{\n  Pneumatic9.extend(cylinder1);\n  Motor1.spin(forward);\n  Motor2.spin(forward);\n  Motor7.spin(forward);\n  Motor8.spin(forward);\n}\nvoid Backward()\n{\n  Pneumatic9.extend(cylinder1);\n  Motor1.spin(reverse);\n  Motor2.spin(reverse);\n  Motor7.spin(reverse);\n  Motor8.spin(reverse);\n  \n\n}\nvoid bucket_intake_pnumatic_ret()\n{\n  \n  Pneumatic9.retract(cylinder1);\n}\n\nvoid bucket_intake_pnumatic_ext()\n{\n  Pneumatic9.extend(cylinder1);\n}\nvoid purple_blocker_ret()\n{\n  Pneumatic9.extend(cylinder2);\n}\nvoid purple_blocker_ext()\n{\n  counter = counter+1;\n  rem = counter%2;\n  if(rem == 1)\n  {\n    Pneumatic9.retract(cylinder2);\n  }\n  else\n  {\n    Pneumatic9.extend(cylinder2);\n  }\n  \n}\n\n\nvoid buk_down()\n{\n  Pneumatic9.retract(cylinder1);\n  while(Controller.ButtonRDown.pressing())\n  {\n    if(Bumper4.pressing() == 0)\n  {\n\n      \n\n\n\n    Motor1.spin(reverse);\n    Motor2.spin(reverse);\n    Motor7.spin(reverse);\n    Motor8.spin(reverse);\n    \n  }\n  else\n  {\n    Motor1.stop();\n    Motor2.stop();\n    Motor7.stop();\n    Motor8.stop();\n\n  }\n    \n  }\n\n    // Motor1.spin(forward);\n    // Motor2.spin(forward);\n    // Motor7.spin(forward);\n    // Motor8.spin(forward);\n  \n  \n  \n\n}\n\nvoid buk_up()\n{\n  \n  Pneumatic9.retract(cylinder1);\n\n  while(Controller.ButtonRUp.pressing())\n  {\n\n    if(Bumper5.pressing() == 0)\n  {\n    Motor1.spin(forward);\n    Motor2.spin(forward);\n    Motor7.spin(forward);\n    Motor8.spin(forward);\n  }\n  else\n  {\n    Motor1.stop();\n    Motor2.stop();\n    Motor7.stop();\n    Motor8.stop();\n\n  }\n\n    \n  \n\n    // Motor1.spin(reverse);\n    // Motor2.spin(reverse);\n    // Motor7.spin(reverse);\n    // Motor8.spin(reverse);\n  \n  \n\n}\n}\n\n// // \"when started\" hat block\n// int whenStarted1() {\n  \n//   return 0;\n// }\n\n\nint main() {\n  // Calibrate the Drivetrain Gyro\n  //calibrateDrivetrain();\n\n  Drivetrain.setDriveVelocity(100,percent);\n  Drivetrain.setTurnVelocity(100,percent);\n  Motor1.setVelocity(100,percent);\n  Motor2.setVelocity(100,percent);\n  Motor7.setVelocity(100,percent);\n  Motor8.setVelocity(100,percent);\n  Pneumatic9.pumpOn();\n  Controller.ButtonLDown.pressed(Forward);\n  Controller.ButtonLUp.pressed(Backward);\n  Controller.ButtonLUp.released(stop);\n  Controller.ButtonLDown.released(stop);\n  Controller.ButtonFDown.pressed(bucket_intake_pnumatic_ret);\n  Controller.ButtonFUp.pressed(bucket_intake_pnumatic_ext);\n  //Controller.ButtonL3.released(purple_blocker_ret);\n  Controller.ButtonR3.pressed(purple_blocker_ext);\n  Controller.ButtonRDown.pressed(buk_down);\n  Controller.ButtonRUp.pressed(buk_up);\n  Controller.ButtonRDown.released(stop);\n  Controller.ButtonRUp.released(stop);\n\n}","textLanguage":"cpp","rconfig":[{"port":[],"name":"Controller","customName":false,"deviceType":"Controller","deviceClass":"controller","setting":{"left":"","leftDir":"false","right":"","rightDir":"false","e":"","eDir":"false","f":"","fDir":"false","l3r3":"","l3r3Dir":"false","drive":"split"},"triportSourcePort":22},{"port":[3,10,0],"name":"Drivetrain","customName":false,"deviceType":"Drivetrain","deviceClass":"smartdrive","setting":{"type":"2-motor","wheelSize":"200mm","gearRatio":"3:1","direction":"fwd","gyroType":"none","width":"173","unit":"mm","wheelbase":"76","wheelbaseUnit":"mm","xOffset":"0","yOffset":"0","thetaOffset":"0"},"triportSourcePort":22},{"port":[1],"name":"Motor1","customName":false,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[2],"name":"Motor2","customName":false,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[7],"name":"Motor7","customName":false,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[8],"name":"Motor8","customName":false,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse"},"triportSourcePort":22},{"port":[9],"name":"Pneumatic9","customName":false,"deviceType":"Pneumatic","deviceClass":"pneumatic","setting":{"cylinder1":"cylinder1","cylinder2":"cylinder2","cylinder1_reversed":"false","cylinder2_reversed":"false"},"triportSourcePort":22},{"port":[5],"name":"Bumper5","customName":false,"deviceType":"Bumper","deviceClass":"bumper","setting":{},"triportSourcePort":22},{"port":[4],"name":"Bumper4","customName":false,"deviceType":"Bumper","deviceClass":"bumper","setting":{},"triportSourcePort":22}],"slot":0,"platform":"IQ","sdkVersion":"20230818.11.00.00","appVersion":"3.0.4","minVersion":"3.0.0","fileFormat":"1.2.0","icon":"","targetBrainGen":"Second","v5SoundsEnabled":false,"target":"Physical"}
+#pragma region VEXcode Generated Robot Configuration
+// Make sure all required headers are included.
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <string.h>
+
+
+#include "vex.h"
+
+using namespace vex;
+
+// Brain should be defined by default
+brain Brain;
+
+
+// START IQ MACROS
+#define waitUntil(condition)                                                   \
+  do {                                                                         \
+    wait(5, msec);                                                             \
+  } while (!(condition))
+
+#define repeat(iterations)                                                     \
+  for (int iterator = 0; iterator < iterations; iterator++)
+// END IQ MACROS
+
+
+// Robot configuration code.
+inertial BrainInertial = inertial();
+controller Controller = controller();
+motor LeftDriveSmart = motor(PORT3, 3, false);
+motor RightDriveSmart = motor(PORT10, 3, true);
+drivetrain Drivetrain = drivetrain(LeftDriveSmart, RightDriveSmart, 200, 173, 76, mm, 1);
+motor Motor1 = motor(PORT1, true);
+motor Motor2 = motor(PORT2, true);
+motor Motor7 = motor(PORT7, false);
+motor Motor8 = motor(PORT8, false);
+pneumatic Pneumatic9 = pneumatic(PORT9);
+bumper Bumper5 = bumper(PORT5);
+bumper Bumper4 = bumper(PORT4);
+
+
+// generating and setting random seed
+void initializeRandomSeed(){
+  wait(100,msec);
+  double xAxis = BrainInertial.acceleration(xaxis) * 1000;
+  double yAxis = BrainInertial.acceleration(yaxis) * 1000;
+  double zAxis = BrainInertial.acceleration(zaxis) * 1000;
+  // Combine these values into a single integer
+  int seed = int(
+    xAxis + yAxis + zAxis
+  );
+  // Set the seed
+  srand(seed); 
+}
+
+
+
+void vexcodeInit() {
+
+  // Initializing random seed.
+  initializeRandomSeed(); 
+}
+
+
+// define variable for remote controller enable/disable
+bool RemoteControlCodeEnabled = true;
+// define variables used for controlling motors based on controller inputs
+bool DrivetrainLNeedsToBeStopped_Controller = true;
+bool DrivetrainRNeedsToBeStopped_Controller = true;
+
+// define a task that will handle monitoring inputs from Controller
+int rc_auto_loop_function_Controller() {
+  // process the controller input every 20 milliseconds
+  // update the motors based on the input values
+  while(true) {
+    if(RemoteControlCodeEnabled) {
+      
+      // calculate the drivetrain motor velocities from the controller joystick axies
+      // left = AxisA + AxisC
+      // right = AxisA - AxisC
+      int drivetrainLeftSideSpeed = Controller.AxisA.position() + Controller.AxisC.position();
+      int drivetrainRightSideSpeed = Controller.AxisA.position() - Controller.AxisC.position();
+      
+      // check if the value is inside of the deadband range
+      if (drivetrainLeftSideSpeed < 5 && drivetrainLeftSideSpeed > -5) {
+        // check if the left motor has already been stopped
+        if (DrivetrainLNeedsToBeStopped_Controller) {
+          // stop the left drive motor
+          LeftDriveSmart.stop();
+          // tell the code that the left motor has been stopped
+          DrivetrainLNeedsToBeStopped_Controller = false;
+        }
+      } else {
+        // reset the toggle so that the deadband code knows to stop the left motor nexttime the input is in the deadband range
+        DrivetrainLNeedsToBeStopped_Controller = true;
+      }
+      // check if the value is inside of the deadband range
+      if (drivetrainRightSideSpeed < 5 && drivetrainRightSideSpeed > -5) {
+        // check if the right motor has already been stopped
+        if (DrivetrainRNeedsToBeStopped_Controller) {
+          // stop the right drive motor
+          RightDriveSmart.stop();
+          // tell the code that the right motor has been stopped
+          DrivetrainRNeedsToBeStopped_Controller = false;
+        }
+      } else {
+        // reset the toggle so that the deadband code knows to stop the right motor next time the input is in the deadband range
+        DrivetrainRNeedsToBeStopped_Controller = true;
+      }
+      
+      // only tell the left drive motor to spin if the values are not in the deadband range
+      if (DrivetrainLNeedsToBeStopped_Controller) {
+        LeftDriveSmart.setVelocity(drivetrainLeftSideSpeed, percent);
+        LeftDriveSmart.spin(forward);
+      }
+      // only tell the right drive motor to spin if the values are not in the deadband range
+      if (DrivetrainRNeedsToBeStopped_Controller) {
+        RightDriveSmart.setVelocity(drivetrainRightSideSpeed, percent);
+        RightDriveSmart.spin(forward);
+      }
+    }
+    // wait before repeating the process
+    wait(20, msec);
+  }
+  return 0;
+}
+
+task rc_auto_loop_task_Controller(rc_auto_loop_function_Controller);
+
+#pragma endregion VEXcode Generated Robot Configuration
+
+// Include the IQ Library
+#include "vex.h"
+  
+// Allows for easier use of the VEX Library
+using namespace vex;
+
+float myVariable;
+int counter=0;
+int rem;
+
+void stop()
+{
+  Motor1.stop();
+  Motor2.stop();
+  Motor7.stop();
+  Motor8.stop();
+
+}
+void Forward()
+{
+  Pneumatic9.extend(cylinder1);
+  Motor1.spin(forward);
+  Motor2.spin(forward);
+  Motor7.spin(forward);
+  Motor8.spin(forward);
+}
+void Backward()
+{
+  Pneumatic9.extend(cylinder1);
+  Motor1.spin(reverse);
+  Motor2.spin(reverse);
+  Motor7.spin(reverse);
+  Motor8.spin(reverse);
+  
+
+}
+void bucket_intake_pnumatic_ret()
+{
+  
+  Pneumatic9.retract(cylinder1);
+}
+
+void bucket_intake_pnumatic_ext()
+{
+  Pneumatic9.extend(cylinder1);
+}
+void purple_blocker_ret()
+{
+  Pneumatic9.extend(cylinder2);
+}
+void purple_blocker_ext()
+{
+  counter = counter+1;
+  rem = counter%2;
+  if(rem == 1)
+  {
+    Pneumatic9.retract(cylinder2);
+  }
+  else
+  {
+    Pneumatic9.extend(cylinder2);
+  }
+  
+}
+
+
+void buk_down()
+{
+  Pneumatic9.retract(cylinder1);
+  while(Controller.ButtonRDown.pressing())
+  {
+    if(Bumper4.pressing() == 0)
+  {
+
+      
+
+
+
+    Motor1.spin(reverse);
+    Motor2.spin(reverse);
+    Motor7.spin(reverse);
+    Motor8.spin(reverse);
+    
+  }
+  else
+  {
+    Motor1.stop();
+    Motor2.stop();
+    Motor7.stop();
+    Motor8.stop();
+
+  }
+    
+  }
+
+    // Motor1.spin(forward);
+    // Motor2.spin(forward);
+    // Motor7.spin(forward);
+    // Motor8.spin(forward);
+  
+  
+  
+
+}
+
+void buk_up()
+{
+  
+  Pneumatic9.retract(cylinder1);
+
+  while(Controller.ButtonRUp.pressing())
+  {
+
+    if(Bumper5.pressing() == 0)
+  {
+    Motor1.spin(forward);
+    Motor2.spin(forward);
+    Motor7.spin(forward);
+    Motor8.spin(forward);
+  }
+  else
+  {
+    Motor1.stop();
+    Motor2.stop();
+    Motor7.stop();
+    Motor8.stop();
+
+  }
+
+    
+  
+
+    // Motor1.spin(reverse);
+    // Motor2.spin(reverse);
+    // Motor7.spin(reverse);
+    // Motor8.spin(reverse);
+  
+  
+
+}
+}
+
+// // "when started" hat block
+// int whenStarted1() {
+  
+//   return 0;
+// }
+
+
+int main() {
+  // Calibrate the Drivetrain Gyro
+  //calibrateDrivetrain();
+
+  Drivetrain.setDriveVelocity(100,percent);
+  Drivetrain.setTurnVelocity(100,percent);
+  Motor1.setVelocity(100,percent);
+  Motor2.setVelocity(100,percent);
+  Motor7.setVelocity(100,percent);
+  Motor8.setVelocity(100,percent);
+  Pneumatic9.pumpOn();
+  Controller.ButtonLDown.pressed(Forward);
+  Controller.ButtonLUp.pressed(Backward);
+  Controller.ButtonLUp.released(stop);
+  Controller.ButtonLDown.released(stop);
+  Controller.ButtonFDown.pressed(bucket_intake_pnumatic_ret);
+  Controller.ButtonFUp.pressed(bucket_intake_pnumatic_ext);
+  //Controller.ButtonL3.released(purple_blocker_ret);
+  Controller.ButtonR3.pressed(purple_blocker_ext);
+  Controller.ButtonRDown.pressed(buk_down);
+  Controller.ButtonRUp.pressed(buk_up);
+  Controller.ButtonRDown.released(stop);
+  Controller.ButtonRUp.released(stop);
+
+}
